@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" width="1200" height="600">
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#326ce5"/>
+      <stop offset="1" stop-color="#15254d"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="600" fill="url(#background)"/>
+
+  <!-- Book and title, centred as one group -->
+  <g transform="translate(196 104) scale(1.5)">
+    <path fill="#ffffff" d="M11 18.5c7.5-3.5 15-3 19.5 1.5v29c-4.5-3.8-12-4.3-19.5-1.3z"/>
+    <path fill="#ffffff" d="M53 18.5c-7.5-3.5-15-3-19.5 1.5v29c4.5-3.8 12-4.3 19.5-1.3z"/>
+  </g>
+  <text x="316" y="174" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="52" font-weight="700" fill="#ffffff">Kubernetes Documentation</text>
+  <text x="316" y="218" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="26" fill="#c9d8ff">Every field of every resource, inside Lens</text>
+
+  <!-- A glimpse of the field browser -->
+  <rect x="250" y="262" width="700" height="236" rx="14" fill="#0d1733" fill-opacity="0.55" stroke="#ffffff" stroke-opacity="0.18"/>
+  <g font-family="Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="22">
+    <text x="282" y="310" fill="#8fa9e8">▾</text>
+    <text x="310" y="310" fill="#ffffff" font-weight="700">spec</text>
+    <text x="580" y="310" fill="#7fd1ff">PodSpec</text>
+
+    <text x="310" y="352" fill="#8fa9e8">▾</text>
+    <text x="338" y="352" fill="#ffffff" font-weight="700">containers</text>
+    <text x="580" y="352" fill="#7fd1ff">[]Container</text>
+    <rect x="760" y="332" width="96" height="27" rx="6" fill="#f5b83d" fill-opacity="0.3"/>
+    <text x="808" y="351" text-anchor="middle" font-size="16" fill="#ffe2a6">required</text>
+
+    <text x="366" y="394" fill="#ffffff" font-weight="700">image</text>
+    <text x="580" y="394" fill="#7fd1ff">string</text>
+    <text x="366" y="422" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="17" fill="#b8c7ee">Container image name.</text>
+
+    <text x="338" y="466" fill="#8fa9e8">▸</text>
+    <text x="366" y="466" fill="#ffffff" font-weight="700">ports</text>
+    <text x="580" y="466" fill="#7fd1ff">[]ContainerPort</text>
+  </g>
+</svg>

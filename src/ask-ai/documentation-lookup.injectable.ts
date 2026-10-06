@@ -1,0 +1,88 @@
+import { getInjectable2 } from "@k8slens/injectable";
+import { apiextensionsV1, customResourceDefinitionKind, kubeResourcesInjectionToken } from "@k8slens/kubernetes-contracts";
+import { when } from "mobx";
+import {
+  getApiReference,
+  getBuiltInDocumentation,
+  getVersionsDocumenting,
+  isBuiltIn,
+  newestKubernetesVersion,
+} from "../api-reference/built-in-documentation";
+import { getCustomResourceDocumentation, matchesTarget } from "../api-reference/custom-resource-documentation";
+import { getVersion, type ResourceDocumentation } from "../api-reference/resource-documentation";
+import { clusterKubernetesVersionInjectable } from "../kubernetes-version/cluster-kubernetes-version.injectable";
+
+// Ample for the cluster to tell its version, or for the remembered choice to be read, after which
+// the newest bundled version is as good a guess as any.
+const waitForKubernetesVersionMs = 10_000;
+
+const formatVersions = (versions: readonly string[]) =>
+  versions.length === 1 ? versions[0] : `${versions.at(-1)} to ${versions[0]}`;
+
+/**
+ * The documentation of a kind on a cluster, the same the documentation tab shows, for code with no
+ * component to show it in: from the bundled reference of the cluster's Kubernetes version for a
+ * built-in kind, from its CRD for a custom resource. Rejects saying why when there is none.
+ */
+export const documentationLookupInjectable = getInjectable2({
+  id: "kube-documentation-documentation-lookup",
+  consumptions: [kubeResourcesInjectionToken],
+
+  instantiate: (di) => {
+    const kubeResources = di.inject(kubeResourcesInjectionToken)();
+    const getClusterKubernetesVersion = di.inject(clusterKubernetesVersionInjectable);
+
+    const readCustomResourceDefinitions = async (clusterId: string) => {
+      const subscription = kubeResources(customResourceDefinitionKind, apiextensionsV1, clusterId).subscribe();
+
+      subscription.claim();
+
+      try {
+        return (await subscription.value).get();
+      } finally {
+        subscription.dispose();
+      }
+    };
+
+    const getKubernetesVersion = async (clusterId: string) => {
+      const clusterKubernetesVersion = getClusterKubernetesVersion(clusterId);
+
+      await when(() => clusterKubernetesVersion.get() !== undefined, { timeout: waitForKubernetesVersionMs }).catch(() => {});
+
+      return clusterKubernetesVersion.get()?.kubernetesVersion ?? newestKubernetesVersion;
+    };
+
+    return () =>
+      async (clusterId: string, apiVersion: string, kind: string): Promise<ResourceDocumentation> => {
+        const kubernetesVersion = await getKubernetesVersion(clusterId);
+
+        if (isBuiltIn(apiVersion, kind)) {
+          const documentation = getBuiltInDocumentation(kubernetesVersion, apiVersion, kind);
+
+          if (documentation) {
+            return documentation;
+          }
+
+          throw new Error(
+            `${kind} (${apiVersion}) is not in Kubernetes ${kubernetesVersion}, which this cluster is documented as; ` +
+              `Kubernetes ${formatVersions(getVersionsDocumenting(apiVersion, kind))} has it.`,
+          );
+        }
+
+        const crd = (await readCustomResourceDefinitions(clusterId)).find((candidate) => matchesTarget(candidate, apiVersion, kind));
+        const documentation =
+          (crd && getCustomResourceDocumentation(crd, apiVersion, kind, getApiReference(kubernetesVersion))) ??
+          getBuiltInDocumentation(kubernetesVersion, apiVersion, kind);
+
+        if (documentation) {
+          return documentation;
+        }
+
+        throw new Error(
+          crd
+            ? `The CustomResourceDefinition ${crd.metadata.name} declares no version ${getVersion(apiVersion)} of ${kind}.`
+            : `${kind} (${apiVersion}) is neither a built-in kind of Kubernetes nor defined by a CustomResourceDefinition in this cluster. Check the kind and the API version, as in \`kubectl api-resources\`.`,
+        );
+      };
+  },
+});
