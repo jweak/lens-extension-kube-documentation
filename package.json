@@ -27,7 +27,8 @@
     "dist",
     "assets",
     "README.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "NOTICE"
   ],
   "lensExtension": {
     "icon": "assets/icon.svg",

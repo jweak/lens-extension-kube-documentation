@@ -10,12 +10,10 @@ import { getSummary } from "../api-reference/fields";
 import { ExternalLink, TextLink } from "../components/links";
 import { RichText } from "../components/rich-text";
 import { openResourceDocumentationInjectable } from "../documentation-tab/open-resource-documentation.injectable";
-import { askAiAboutDocumentationInjectable } from "../ask-ai/ask-ai-about-documentation.injectable";
 import { clusterKubernetesVersionInjectable } from "../kubernetes-version/cluster-kubernetes-version.injectable";
 
 const DocumentationSection = observer(({ resource, clusterId }: DetailsPanelSectionProps) => {
   const openResourceDocumentation = useInject(openResourceDocumentationInjectable)();
-  const askAiAboutDocumentation = useInject(askAiAboutDocumentationInjectable)();
   const kubernetesVersion = useInject(clusterKubernetesVersionInjectable)(clusterId).get()?.kubernetesVersion;
   const documentation = kubernetesVersion && getBuiltInDocumentation(kubernetesVersion, resource.apiVersion, resource.kind);
 
@@ -44,12 +42,6 @@ const DocumentationSection = observer(({ resource, clusterId }: DetailsPanelSect
             $tooltip={`Browse every field of ${resource.kind} in the dock`}
           >
             Browse fields
-          </TextLink>
-          <TextLink
-            $onClick={() => void askAiAboutDocumentation(clusterId, documentation)}
-            $tooltip={`Ask the AI assistant about ${resource.kind}, briefed with its documentation`}
-          >
-            Ask AI
           </TextLink>
           {documentation.referenceUrl && (
             <ExternalLink url={documentation.referenceUrl} $flex={{ gap: "xxs", verticalAlign: "center" }}>
