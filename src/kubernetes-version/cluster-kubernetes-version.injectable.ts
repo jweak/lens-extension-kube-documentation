@@ -28,17 +28,25 @@ const nearestBundledVersion = (kubernetesVersion: string) =>
       : bundledKubernetesVersions[bundledKubernetesVersions.length - 1];
 
 export interface ClusterKubernetesVersion {
-  /** The Kubernetes version whose reference documents the cluster's built-in kinds. */
+  /** The Kubernetes version the cluster is documented as: a bundled one, or the cluster's own when `live`. */
   readonly kubernetesVersion: string;
-  /** What the cluster said it runs, with the bundled version nearest to it; absent when it could not tell. */
-  readonly cluster?: ServerVersion & { readonly nearestBundled: string };
+  /**
+   * Whether the documentation is read from the API schema the cluster itself serves, because it runs
+   * a version the bundle does not have and the user has not chosen one that it does.
+   */
+  readonly live: boolean;
+  /** The bundled reference to document the cluster from: `kubernetesVersion`, or the nearest to it when live. */
+  readonly bundledKubernetesVersion: string;
+  /** What the cluster said it runs, with whether its reference is bundled; absent when it could not tell. */
+  readonly cluster?: ServerVersion & { readonly bundled: boolean };
   /** Whether the version shown is one the user chose rather than the cluster's own or the newest. */
   readonly chosen: boolean;
 }
 
 /**
- * Which Kubernetes version's reference documents a cluster's built-in kinds: the version the
- * cluster runs, when it can be asked. Otherwise the one the user chose for it, remembered per
+ * Which Kubernetes version a cluster's built-in kinds are documented as: the version the cluster
+ * runs, when it can be asked, from the bundled reference or, for a version the bundle does not have,
+ * from the cluster's own API schema. Otherwise the one the user chose for it, remembered per
  * cluster, and the newest bundled one until they choose.
  *
  * Choosing another version while the cluster's is known looks at that version for the session, and
@@ -73,13 +81,20 @@ export const clusterKubernetesVersionInjectable = getInjectable2({
           const server = serverVersion.get();
 
           if (server) {
-            const nearestBundled = nearestBundledVersion(server.kubernetesVersion);
+            const bundled = bundledKubernetesVersions.includes(server.kubernetesVersion);
             const chosen = sessionChoice.get();
+            const cluster = { ...server, bundled };
+
+            if (chosen) {
+              return { kubernetesVersion: chosen, live: false, bundledKubernetesVersion: chosen, cluster, chosen: true };
+            }
 
             return {
-              kubernetesVersion: chosen ?? nearestBundled,
-              cluster: { ...server, nearestBundled },
-              chosen: chosen !== undefined,
+              kubernetesVersion: server.kubernetesVersion,
+              live: !bundled,
+              bundledKubernetesVersion: nearestBundledVersion(server.kubernetesVersion),
+              cluster,
+              chosen: false,
             };
           }
 
@@ -87,9 +102,14 @@ export const clusterKubernetesVersionInjectable = getInjectable2({
             return undefined;
           }
 
-          const remembered = getRememberedChoice();
+          const kubernetesVersion = getRememberedChoice() ?? newestKubernetesVersion;
 
-          return { kubernetesVersion: remembered ?? newestKubernetesVersion, chosen: remembered !== undefined };
+          return {
+            kubernetesVersion,
+            live: false,
+            bundledKubernetesVersion: kubernetesVersion,
+            chosen: getRememberedChoice() !== undefined,
+          };
         },
 
         choose: action((kubernetesVersion: string) => {
@@ -97,7 +117,7 @@ export const clusterKubernetesVersionInjectable = getInjectable2({
 
           if (server) {
             // Choosing the cluster's own version again goes back to following the cluster.
-            sessionChoice.set(kubernetesVersion === nearestBundledVersion(server.kubernetesVersion) ? undefined : kubernetesVersion);
+            sessionChoice.set(kubernetesVersion === server.kubernetesVersion ? undefined : kubernetesVersion);
           } else {
             void getChoice(clusterId).then(action((loaded) => loaded.set(kubernetesVersion)));
           }

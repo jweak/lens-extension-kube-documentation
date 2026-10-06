@@ -17,7 +17,13 @@ export const toFieldSummary = (field: Field): FieldSummary => ({
 });
 
 /** Where documentation comes from, in words the assistant can relay. */
-export const describeSource = ({ source }: ResourceDocumentation) =>
-  source.type === "built-in"
-    ? `the Kubernetes ${source.kubernetesVersion} API reference`
-    : `the schema of the CustomResourceDefinition ${source.crdName} in the cluster`;
+export const describeSource = ({ source }: ResourceDocumentation) => {
+  switch (source.type) {
+    case "built-in":
+      return `the Kubernetes ${source.kubernetesVersion} API reference`;
+    case "custom-resource":
+      return `the schema of the CustomResourceDefinition ${source.crdName} in the cluster`;
+    case "cluster":
+      return `the API schema the cluster itself serves${source.gitVersion ? `, which runs Kubernetes ${source.gitVersion}` : ""}`;
+  }
+};

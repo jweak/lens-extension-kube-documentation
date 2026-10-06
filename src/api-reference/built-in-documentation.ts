@@ -66,7 +66,7 @@ const findOtherApiVersion = (reference: KubernetesApiReference, apiVersion: stri
 
 // The structured page when kubernetes.io has one, which it has only as of the latest release; else
 // the single-page reference of the very Kubernetes version, which has an anchor for every kind.
-const getReferenceUrl = (kubernetesVersion: string, { apiVersion, kind }: ApiReferenceResource) => {
+const getReferenceUrl = (kubernetesVersion: string, { apiVersion, kind }: { readonly apiVersion: string; readonly kind: string }) => {
   const page = kubernetesApiReference.referencePages[`${apiVersion}|${kind}`];
 
   if (page) {
@@ -78,6 +78,16 @@ const getReferenceUrl = (kubernetesVersion: string, { apiVersion, kind }: ApiRef
 
   return `https://kubernetes.io/docs/reference/generated/kubernetes-api/v${kubernetesVersion}/#${anchor}`;
 };
+
+// Kubernetes' own groups: the core group, the unqualified ones such as apps and batch, and *.k8s.io.
+export const isKubernetesGroup = (group: string) => group === "" || !group.includes(".") || group.endsWith(".k8s.io");
+
+/**
+ * kubernetes.io's reference of a kind of Kubernetes' own, as of a Kubernetes version, including
+ * versions newer than the bundle; undefined for the kinds of other groups, which it does not document.
+ */
+export const getKubernetesReferenceUrl = (kubernetesVersion: string, apiVersion: string, kind: string) =>
+  isKubernetesGroup(getGroup(apiVersion)) ? getReferenceUrl(kubernetesVersion, { apiVersion, kind }) : undefined;
 
 const documentationCache = new Map<string, ResourceDocumentation | undefined>();
 

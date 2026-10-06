@@ -18,7 +18,9 @@ import {
   isBuiltIn,
 } from "../api-reference/built-in-documentation";
 import { getCustomResourceDocumentation, matchesTarget } from "../api-reference/custom-resource-documentation";
+import { getClusterSchemaDocumentation } from "../api-reference/cluster-schema-documentation";
 import { type DocumentationTarget, getVersion } from "../api-reference/resource-documentation";
+import { clusterApiSchemaInjectable } from "../kubernetes-version/cluster-api-schema.injectable";
 import { clusterKubernetesVersionInjectable } from "../kubernetes-version/cluster-kubernetes-version.injectable";
 import { KubernetesVersionPicker } from "../kubernetes-version/kubernetes-version-picker";
 import { DocumentationView } from "./documentation-view";
@@ -44,15 +46,25 @@ const Message = ({ children }: { readonly children: ReactNode }) => (
 const formatVersions = (versions: readonly string[]) =>
   versions.length === 1 ? versions[0] : `${versions.at(-1)} to ${versions[0]}`;
 
-const NotDocumented = ({
+const NotDocumented = (props: VersionedProps & { readonly crd?: CustomResourceDefinitionV1 }) => {
+  const documentingVersions = getVersionsDocumenting(props.target.apiVersion, props.target.kind);
+
+  // Neither bundled nor a CRD: an aggregated API, or a kind newer than the bundle, which the cluster's
+  // own schema may still describe.
+  return !props.crd && documentingVersions.length === 0 ? (
+    <ClusterSchemaDocumentation {...props} fallback={<NoDocumentationMessage {...props} documentingVersions={documentingVersions} />} />
+  ) : (
+    <NoDocumentationMessage {...props} documentingVersions={documentingVersions} />
+  );
+};
+
+const NoDocumentationMessage = ({
   target,
   clusterId,
   kubernetesVersion,
   crd,
-}: VersionedProps & { readonly crd?: CustomResourceDefinitionV1 }) => {
-  const documentingVersions = getVersionsDocumenting(target.apiVersion, target.kind);
-
-  return (
+  documentingVersions,
+}: VersionedProps & { readonly crd?: CustomResourceDefinitionV1; readonly documentingVersions: readonly string[] }) => (
     <Message>
       <Div $flex={{ gap: "s", verticalAlign: "center", wrap: true }}>
         <Span $font={{ bold: true }} $color="textHighlight">
@@ -71,13 +83,12 @@ const NotDocumented = ({
         </Span>
       ) : (
         <Span>
-          It is not a built-in kind of any bundled Kubernetes version, and the cluster has no CustomResourceDefinition for
-          it. An aggregated API server may be serving it instead.
+          It is not in any bundled Kubernetes version, the cluster has no CustomResourceDefinition for it, and the API
+          schema the cluster serves does not describe it either.
         </Span>
       )}
     </Message>
-  );
-};
+);
 
 const CustomResourceDocumentation = observer(
   ({ crds, ...props }: VersionedProps & { readonly crds: IComputedValue<readonly CustomResourceDefinitionV1[]> }) => {
@@ -103,12 +114,34 @@ const CustomResourceDefinitionsLoader = (props: VersionedProps) => {
   return <CustomResourceDocumentation {...props} crds={crds} />;
 };
 
-const Loading = () => (
+const Loading = ({ children }: { readonly children: ReactNode }) => (
   <Message>
     <Div $flex={{ gap: "s", verticalAlign: "center" }}>
-      <SpinnerIcon $size="m" /> Reading the cluster&apos;s CustomResourceDefinitions…
+      <SpinnerIcon $size="m" /> {children}
     </Div>
   </Message>
+);
+
+/**
+ * The documentation of a kind as the API schema the cluster serves has it, for what the bundled
+ * reference does not cover; `fallback` when the schema cannot be read or does not have the kind.
+ */
+const ClusterSchemaDocumentation = observer(
+  ({ clusterId, target, viewId, fallback }: DocumentationForTargetProps & { readonly fallback: ReactNode }) => {
+    const clusterVersion = useInject(clusterKubernetesVersionInjectable)(clusterId).get()?.cluster;
+    const schema = useInject(clusterApiSchemaInjectable)(clusterId, target.apiVersion).get();
+
+    if (schema.status === "loading") {
+      return <Loading>Reading the API schema the cluster serves…</Loading>;
+    }
+
+    const documentation =
+      schema.status === "loaded"
+        ? getClusterSchemaDocumentation(schema.document, target.apiVersion, target.kind, clusterVersion)
+        : undefined;
+
+    return documentation ? <DocumentationView documentation={documentation} clusterId={clusterId} viewId={viewId} /> : <>{fallback}</>;
+  },
 );
 
 const CouldNotReadCustomResourceDefinitions = ({ error, target }: VersionedProps & { readonly error: Error }) => (
@@ -128,13 +161,22 @@ const CouldNotReadCustomResourceDefinitions = ({ error, target }: VersionedProps
  * documented as for a built-in kind, from its CRD for a custom resource.
  */
 export const DocumentationForTarget = observer((props: DocumentationForTargetProps) => {
-  const { clusterId, target, viewId } = props;
-  const kubernetesVersion = useInject(clusterKubernetesVersionInjectable)(clusterId).get()?.kubernetesVersion;
+  const version = useInject(clusterKubernetesVersionInjectable)(props.clusterId).get();
 
-  if (!kubernetesVersion) {
+  if (!version) {
     // The cluster is asked for its version, and the remembered choice read, before anything is shown, so the documentation does not flicker from one version to another.
     return null;
   }
+
+  const bundled = <BundledDocumentation {...props} kubernetesVersion={version.bundledKubernetesVersion} />;
+
+  // A cluster running a version the bundle does not have is documented from its own API schema.
+  return version.live ? <ClusterSchemaDocumentation {...props} fallback={bundled} /> : bundled;
+});
+
+/** The documentation from the bundled reference of a Kubernetes version, or from its CRD for a custom resource. */
+const BundledDocumentation = (props: VersionedProps) => {
+  const { clusterId, target, viewId, kubernetesVersion } = props;
 
   if (isBuiltIn(target.apiVersion, target.kind)) {
     const documentation = getBuiltInDocumentation(kubernetesVersion, target.apiVersion, target.kind);
@@ -142,17 +184,17 @@ export const DocumentationForTarget = observer((props: DocumentationForTargetPro
     return documentation ? (
       <DocumentationView documentation={documentation} clusterId={clusterId} viewId={viewId} />
     ) : (
-      <NotDocumented {...props} kubernetesVersion={kubernetesVersion} />
+      <NotDocumented {...props} />
     );
   }
 
   return (
     <ErrorBoundary
-      fallback={(error) => <CouldNotReadCustomResourceDefinitions {...props} kubernetesVersion={kubernetesVersion} error={error} />}
+      fallback={(error) => <CouldNotReadCustomResourceDefinitions {...props} error={error} />}
     >
-      <Suspense fallback={<Loading />}>
-        <CustomResourceDefinitionsLoader {...props} kubernetesVersion={kubernetesVersion} />
+      <Suspense fallback={<Loading>Reading the cluster&apos;s CustomResourceDefinitions…</Loading>}>
+        <CustomResourceDefinitionsLoader {...props} />
       </Suspense>
     </ErrorBoundary>
   );
-});
+};

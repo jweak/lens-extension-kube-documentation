@@ -12,16 +12,16 @@ const describe = (version: ClusterKubernetesVersion | undefined) => {
     return "Asking the cluster which Kubernetes version it runs…";
   }
 
-  const { kubernetesVersion, cluster, chosen } = version;
+  const { kubernetesVersion, cluster, chosen, live } = version;
 
   if (cluster) {
     if (chosen) {
-      return `Showing Kubernetes ${kubernetesVersion}, though this cluster runs ${cluster.gitVersion}. Choose ${cluster.nearestBundled} to follow the cluster again.`;
+      return `Showing Kubernetes ${kubernetesVersion}, though this cluster runs ${cluster.gitVersion}. Choose ${cluster.kubernetesVersion} to follow the cluster again.`;
     }
 
-    return cluster.nearestBundled === cluster.kubernetesVersion
-      ? `This cluster runs Kubernetes ${cluster.gitVersion}`
-      : `This cluster runs Kubernetes ${cluster.gitVersion}, whose reference is not bundled, so this is the nearest: ${cluster.nearestBundled}`;
+    return live
+      ? `This cluster runs Kubernetes ${cluster.gitVersion}, whose reference is not bundled, so the documentation is read from the API schema the cluster serves`
+      : `This cluster runs Kubernetes ${cluster.gitVersion}`;
   }
 
   return chosen

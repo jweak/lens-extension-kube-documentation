@@ -14,7 +14,7 @@ import { clusterKubernetesVersionInjectable } from "../kubernetes-version/cluste
 
 const DocumentationSection = observer(({ resource, clusterId }: DetailsPanelSectionProps) => {
   const openResourceDocumentation = useInject(openResourceDocumentationInjectable)();
-  const kubernetesVersion = useInject(clusterKubernetesVersionInjectable)(clusterId).get()?.kubernetesVersion;
+  const kubernetesVersion = useInject(clusterKubernetesVersionInjectable)(clusterId).get()?.bundledKubernetesVersion;
   const documentation = kubernetesVersion && getBuiltInDocumentation(kubernetesVersion, resource.apiVersion, resource.kind);
 
   if (!documentation) {

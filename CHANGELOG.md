@@ -12,4 +12,5 @@ What changed in each version of this extension, newest first.
 - Ask AI conversations can explain kinds and fields, search fields, compare a kind between Kubernetes versions, and open the documentation in Lens.
 - The filter finds fields by words run together, so `grace period` finds `terminationGracePeriodSeconds`, and lists the shallowest matches first.
 - Built-in kinds are documented from the API reference of Kubernetes 1.29 to 1.36, bundled with the extension so it works offline.
+- A cluster running a Kubernetes version newer or older than the bundled ones is documented from the API schema it serves itself, as are APIs that add-ons serve, such as `metrics.k8s.io`.
 - Built-in kinds are documented as of the Kubernetes version the cluster runs, asked of the cluster. A menu in the documentation tab shows another version, and chooses the cluster's version, remembered per cluster, when the cluster cannot be asked.

@@ -83,6 +83,9 @@ const Header = observer(({ documentation, clusterId, state }: HeaderProps) => {
           {source.type === "custom-resource" && (
             <Badge small label="Custom resource" $tooltip={`From the schema of CustomResourceDefinition ${source.crdName}`} />
           )}
+          {source.type === "cluster" && (
+            <Badge small label="From the cluster" $tooltip="Read from the API schema the cluster itself serves" />
+          )}
           <KubernetesVersionPicker clusterId={clusterId} />
         </Div>
         <Links documentation={documentation} clusterId={clusterId} />
@@ -100,10 +103,10 @@ const Header = observer(({ documentation, clusterId, state }: HeaderProps) => {
           Showing Kubernetes {clusterVersion.kubernetesVersion}, but this cluster runs {cluster.gitVersion}.
         </Notice>
       )}
-      {cluster && !clusterVersion.chosen && cluster.nearestBundled !== cluster.kubernetesVersion && (
+      {cluster && clusterVersion.live && source.type === "built-in" && (
         <Notice>
-          This cluster runs Kubernetes {cluster.gitVersion}, whose reference is not bundled, so this is Kubernetes{" "}
-          {cluster.nearestBundled}.
+          This cluster runs Kubernetes {cluster.gitVersion}, whose reference is not bundled, and its own API schema could
+          not be read, so this is Kubernetes {source.kubernetesVersion}.
         </Notice>
       )}
 

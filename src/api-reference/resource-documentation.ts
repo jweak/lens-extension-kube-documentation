@@ -14,6 +14,14 @@ export type DocumentationSource =
       readonly kubernetesVersion: string;
       /** The CRD's deprecation warning for this version, when the version is deprecated. */
       readonly deprecationWarning?: string;
+    }
+  | {
+      /** Read from the API schema the cluster itself serves, for what the bundled reference does not cover. */
+      readonly type: "cluster";
+      /** The minor version the cluster runs, such as `1.45`, when it could tell. */
+      readonly kubernetesVersion?: string;
+      /** What the cluster calls its version, such as `v1.45.2`, when it could tell. */
+      readonly gitVersion?: string;
     };
 
 /** Everything the view shows for one kind in one API version. */
