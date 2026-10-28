@@ -1,5 +1,6 @@
 import { getInjectable2 } from "@k8slens/injectable";
 import { apiextensionsV1, customResourceDefinitionKind, kubeResourcesInjectionToken } from "@k8slens/kubernetes-contracts";
+import { readOnce } from "@k8slens/subscribable";
 import { when } from "mobx";
 import {
   getApiReference,
@@ -11,7 +12,7 @@ import {
 import { getClusterSchemaDocumentation } from "../api-reference/cluster-schema-documentation";
 import { getCustomResourceDocumentation, matchesTarget } from "../api-reference/custom-resource-documentation";
 import { getVersion, type ResourceDocumentation } from "../api-reference/resource-documentation";
-import { clusterApiSchemaInjectable } from "../kubernetes-version/cluster-api-schema.injectable";
+import { clusterApiSchemaBunch } from "../kubernetes-version/cluster-api-schema.injectable";
 import { type ClusterKubernetesVersion, clusterKubernetesVersionInjectable } from "../kubernetes-version/cluster-kubernetes-version.injectable";
 
 // Ample for the cluster to tell its version, or for the remembered choice to be read, after which
@@ -34,19 +35,10 @@ export const documentationLookupInjectable = getInjectable2({
   instantiate: (di) => {
     const kubeResources = di.inject(kubeResourcesInjectionToken)();
     const getClusterKubernetesVersion = di.inject(clusterKubernetesVersionInjectable);
-    const getClusterApiSchema = di.inject(clusterApiSchemaInjectable);
+    const getClusterApiSchema = di.inject(clusterApiSchemaBunch.subscribable);
 
-    const readCustomResourceDefinitions = async (clusterId: string) => {
-      const subscription = kubeResources(customResourceDefinitionKind, apiextensionsV1, clusterId).subscribe();
-
-      subscription.claim();
-
-      try {
-        return (await subscription.value).get();
-      } finally {
-        subscription.dispose();
-      }
-    };
+    const readCustomResourceDefinitions = (clusterId: string) =>
+      readOnce(kubeResources(customResourceDefinitionKind, apiextensionsV1, clusterId));
 
     const getKubernetesVersion = async (clusterId: string) => {
       const clusterKubernetesVersion = getClusterKubernetesVersion(clusterId);
@@ -63,7 +55,7 @@ export const documentationLookupInjectable = getInjectable2({
       version: ClusterKubernetesVersion | undefined,
     ) => {
       try {
-        const document = await getClusterApiSchema(clusterId, apiVersion).document;
+        const document = await readOnce(getClusterApiSchema(clusterId, apiVersion));
 
         return getClusterSchemaDocumentation(document, apiVersion, kind, version?.cluster);
       } catch {

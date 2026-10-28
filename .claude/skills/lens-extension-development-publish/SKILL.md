@@ -16,7 +16,9 @@ Do not run `npm login` or `npm publish`, and do not ask the user to run them. A 
 
 1. Read the *Publish* section of `~/.k8slens/extensions/extension-development-instructions/README.md`, and do what it asks before a first publish, such as checking the package name is free.
 
-2. Fix what Lens's Publish dialog would warn of, so the user is not stopped there. Check each of these, and fix what is missing:
+2. Check whether the extension has anything to modernize, as the `lens-extension-development-modernize` skill would find in its first round: what the scaffold of today has and the extension lacks, such as `prepublishOnly`, which checks every publish, and ranges below the versions this Lens serves. If it has, say in one sentence what modernizing would bring before this publish, and ask whether to modernize first. Run the skill only if the user says yes, then go on publishing. Publishing goes on either way: do not ask again before the next publish once the user has declined.
+
+3. Fix what Lens's Publish dialog would warn of, so the user is not stopped there. Check each of these, and fix what is missing:
 
    - `license` in `package.json` names an SPDX license, and a matching `LICENSE` file is there.
    - `author` in `package.json` names who the author is.
@@ -28,9 +30,9 @@ Do not run `npm login` or `npm publish`, and do not ask the user to run them. A 
 
    Ask the user where only they can decide, such as the license, the author, or where users report problems. Do not choose for them.
 
-3. Check that `README.md` and `description` still describe what the extension does, and that `CHANGELOG.md` has a heading for the version in `package.json`. If that version is on npm already (`npm view <name>@<version> version` prints it), raise the version first.
+4. Check that `README.md` and `description` still describe what the extension does, that `README.md` has the link to the extension in Lens the instructions' *Keep the README, the changelog and the description current* names, and that `CHANGELOG.md` has a heading for the version in `package.json`. If that version is on npm already (`npm view <name>@<version> version` prints it), raise the version first.
 
-4. Tell the user Lens is about to ask them to publish, and to switch to Lens. Then run, from the extension's directory:
+5. Tell the user Lens is about to ask them to publish, and to switch to Lens. Then run, from the extension's directory:
 
    ```
    node ~/.k8slens/extensions/extension-development-instructions/publish-extension.mjs --ai-tool claude-code
@@ -38,4 +40,4 @@ Do not run `npm login` or `npm publish`, and do not ask the user to run them. A 
 
    Lens opens Publish in its window. The user confirms there, signs in to npm in the browser if asked, and approves the publish. The script waits until the user closes Publish, so give it as long as it takes.
 
-5. Say how it went, as the script printed it: published, failed and why, or closed without publishing. On a failure, fix what the reason names, if it is yours to fix, and offer to try again. If the script could not reach Lens, ask the user to click **Publish** in Lens instead: on the toolbar of the terminal the extension is developed in, or on its details tab. Never say it was published when the script did not say so.
+6. Say how it went, as the script printed it: published, failed and why, or closed without publishing. On a failure, fix what the reason names, if it is yours to fix, and offer to try again. If the script could not reach Lens, ask the user to click **Publish** in Lens instead: on the toolbar of the terminal the extension is developed in, or on its details tab. Never say it was published when the script did not say so.

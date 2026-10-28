@@ -57,12 +57,45 @@ const apiVersionRank = (version: string) => {
   return stabilityRank * 1e6 + Number(major) * 1e3 + Number(minor);
 };
 
+// Kubernetes' own order of API versions, then the core group before the others.
+const byApiVersion = (a: ApiReferenceResource, b: ApiReferenceResource) =>
+  apiVersionRank(getVersion(b.apiVersion)) - apiVersionRank(getVersion(a.apiVersion)) ||
+  (getGroup(a.apiVersion) === "" ? -1 : 0) - (getGroup(b.apiVersion) === "" ? -1 : 0);
+
 // The same kind in another API version of its group, for an API version the Kubernetes version
 // does not have: one the cluster serves from an older or newer release.
 const findOtherApiVersion = (reference: KubernetesApiReference, apiVersion: string, kind: string) =>
   reference.resources
     .filter((resource) => resource.kind === kind && getGroup(resource.apiVersion) === getGroup(apiVersion))
-    .sort((a, b) => apiVersionRank(getVersion(b.apiVersion)) - apiVersionRank(getVersion(a.apiVersion)))[0];
+    .sort(byApiVersion)[0];
+
+/** The kind by that name in a Kubernetes version, in the API version Kubernetes serves it in first. */
+export const findBuiltInKind = (kubernetesVersion: string, kind: string) =>
+  getApiReference(kubernetesVersion)
+    .resources.filter((resource) => resource.kind === kind)
+    .sort(byApiVersion)[0];
+
+// The plural name of a kind, as Kubernetes forms it for its own kinds: lower-case, with the usual
+// English ending; a kind already plural, Endpoints, is its own.
+const pluralOf = (kind: string) => {
+  const lower = kind.toLowerCase();
+
+  if (/[^aeiou]y$/.test(lower)) {
+    return `${lower.slice(0, -1)}ies`;
+  }
+
+  return /(s|x|ch|sh)$/.test(lower) ? `${lower}es` : `${lower}s`;
+};
+
+/** The kind of a Kubernetes version that a group and a plural name, as in the path of a list, stand for. */
+export const findBuiltInByPlural = (kubernetesVersion: string, group: string, plural: string) =>
+  getApiReference(kubernetesVersion)
+    .resources.filter(
+      (resource) =>
+        getGroup(resource.apiVersion) === group &&
+        (pluralOf(resource.kind) === plural || resource.kind.toLowerCase() === plural),
+    )
+    .sort(byApiVersion)[0];
 
 // The structured page when kubernetes.io has one, which it has only as of the latest release; else
 // the single-page reference of the very Kubernetes version, which has an anchor for every kind.

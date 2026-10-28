@@ -30,12 +30,23 @@ const Notice = ({ children }: { readonly children: ReactNode }) => (
   </Div>
 );
 
-const Links = ({ documentation, clusterId }: { readonly documentation: ResourceDocumentation; readonly clusterId: string }) => {
+interface LinksProps {
+  readonly documentation: ResourceDocumentation;
+  readonly clusterId: string;
+  readonly openInWindow?: () => void;
+}
+
+const Links = ({ documentation, clusterId, openInWindow }: LinksProps) => {
   const showCustomResourceDefinition = useInject(showCustomResourceDefinitionInjectable)();
   const { source, referenceUrl, conceptUrl } = documentation;
 
   return (
     <Div $flex={{ gap: "l", verticalAlign: "center", wrap: true }}>
+      {openInWindow && (
+        <TextLink $onClick={openInWindow} $tooltip="Show this documentation in a window of its own, beside Lens">
+          Open in a window
+        </TextLink>
+      )}
       {source.type === "custom-resource" && (
         <TextLink $onClick={() => showCustomResourceDefinition(clusterId, source.crdName)} $tooltip={source.crdName}>
           Show CustomResourceDefinition
@@ -59,9 +70,10 @@ interface HeaderProps {
   readonly documentation: ResourceDocumentation;
   readonly clusterId: string;
   readonly state: DocumentationViewState;
+  readonly openInWindow?: () => void;
 }
 
-const Header = observer(({ documentation, clusterId, state }: HeaderProps) => {
+const Header = observer(({ documentation, clusterId, state, openInWindow }: HeaderProps) => {
   const { kind, apiVersion, source, schema, resolve } = documentation;
   const filtering = state.getFilter().trim() !== "";
   const clusterVersion = useInject(clusterKubernetesVersionInjectable)(clusterId).get();
@@ -88,7 +100,7 @@ const Header = observer(({ documentation, clusterId, state }: HeaderProps) => {
           )}
           <KubernetesVersionPicker clusterId={clusterId} />
         </Div>
-        <Links documentation={documentation} clusterId={clusterId} />
+        <Links documentation={documentation} clusterId={clusterId} openInWindow={openInWindow} />
       </Div>
 
       {source.type === "built-in" && source.requestedApiVersion && (
@@ -145,17 +157,19 @@ interface DocumentationViewProps {
   readonly clusterId: string;
   /** What the view's filter and expanded fields are kept by. */
   readonly viewId: string;
+  /** Opens the same documentation in a window of its own; absent where the view is in one already. */
+  readonly openInWindow?: () => void;
 }
 
 /** The documentation of one kind: what it is, and every field it has, browsable and searchable. */
-export const DocumentationView = observer(({ documentation, clusterId, viewId }: DocumentationViewProps) => {
+export const DocumentationView = observer(({ documentation, clusterId, viewId, openInWindow }: DocumentationViewProps) => {
   const state = useInject(documentationViewStateInjectable)(viewId);
   const root = getRootContainer(documentation.resolve, documentation.schema);
   const filtering = state.getFilter().trim() !== "";
 
   return (
     <Div $flex={{ direction: "vertical" }} $height="full" $width="full">
-      <Header documentation={documentation} clusterId={clusterId} state={state} />
+      <Header documentation={documentation} clusterId={clusterId} state={state} openInWindow={openInWindow} />
 
       <Div
         $flexChild="shrinkable"

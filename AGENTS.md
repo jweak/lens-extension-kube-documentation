@@ -18,6 +18,16 @@ The scaffold ships with a pre-built `dist/index.js` placeholder, so the extensio
 
 Lens serves `react`, `mobx`, `@k8slens/*` and `@lensapp/*` to this extension from its own bundle, and refuses to load the extension when a range declared in `package.json` for one of them does not match the bundled version. The README above lists those versions under "Dependency versions in this Lens build". Declare `^<version>` for each host-provided package you use, and re-check after every Lens upgrade. In Claude Code, `/lens-extension-development-sync-dependencies` rewrites the ranges, reinstalls and rebuilds for you.
 
+The `build` script runs `lens-extension-dependencies-check` first. It fails on every range the Lens on this machine would refuse, naming the range to declare instead. `npx lens-extension-dependencies-check --fix` rewrites those ranges; run `npm install` after it. Without Lens on the machine, the check says it was skipped and passes.
+
+## Publishing is checked before it happens
+
+`prepublishOnly` builds the extension and runs `lens-extension-publish-check` before every `npm publish`. It fails, and npm publishes nothing, when the published package would leave out `dist/index.js`, when a range would keep every Lens from loading the extension, or when a prerelease would become the version users install by default. Publish through Lens, as the README's *Publish* section says, and Lens runs the same checks.
+
+## Keep up with what Lens scaffolds today
+
+Lens keeps improving the scaffold, and writes the extension it would scaffold today to `~/.k8slens/current-extension-scaffold/example-extension` on every load. When this extension lacks something of it a user would be better off with, offer to bring it over, and do it only when the user says yes: the `lens-extension-development-modernize` skill, which is in this directory for every AI tool Lens knows, merges what is missing, raises the ranges to the versions this Lens serves, and moves the extension's code off the Lens APIs that are deprecated.
+
 ## The bundled Kubernetes API reference
 
 `src/api-reference/generated/kubernetes-api-reference.ts` is generated, not written: `node scripts/generate-api-reference.mjs` rebuilds it from the OpenAPI documents of every Kubernetes minor version from `oldestKubernetesVersion` (in the script) up to the release `@k8slens/kubernetes-contracts` is typed for (its `kubernetes.release` field), storing each distinct definition once, and links each kind to its page on kubernetes.io. Run it again after a Lens upgrade moves that release, then rebuild, and update the Kubernetes versions the README and changelog mention. Each version adds about 1 MB before sharing and far less after; raise `oldestKubernetesVersion` as old releases stop mattering. The hand-kept links to kubernetes.io's concept pages live in `src/api-reference/concept-links.ts`.

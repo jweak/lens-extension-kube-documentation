@@ -3,4 +3,6 @@ node_modules/
 .DS_Store
 *.tgz
 .claude/settings.json
+.claude/skills/lens-*/
+.agents/skills/lens-*/
 tsconfig.tsbuildinfo

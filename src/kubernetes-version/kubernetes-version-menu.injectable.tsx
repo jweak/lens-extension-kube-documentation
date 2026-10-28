@@ -1,11 +1,11 @@
-import { getDropDownMenuItemsInjectableBunch, getDropDownMenuKind } from "@k8slens/drop-down-menu-contracts";
-import { DropDownMenuItemRow } from "@k8slens/drop-down-menu-items";
+import { getDropDownMenuItemsInjectableBunch, getDropDownMenuKind, useCloseDropDownMenu } from "@k8slens/drop-down-menu-contracts";
+import { DropDownMenuItemRow, DropDownMenuSeparator } from "@k8slens/drop-down-menu-items";
 import { Span } from "@k8slens/element-components";
-import { CheckIcon } from "@k8slens/icon";
+import { CheckIcon, RefreshIcon } from "@k8slens/icon";
 import { computed } from "mobx";
 import { observer } from "mobx-react";
 import { bundledKubernetesVersions } from "../api-reference/built-in-documentation";
-import { type ClusterKubernetesVersion, clusterKubernetesVersionInjectable } from "./cluster-kubernetes-version.injectable";
+import { type ClusterKubernetesVersionState, clusterKubernetesVersionInjectable } from "./cluster-kubernetes-version.injectable";
 
 interface KubernetesVersionMenuData {
   readonly clusterId: string;
@@ -16,10 +16,7 @@ export const kubernetesVersionMenuKind = getDropDownMenuKind<KubernetesVersionMe
 
 interface KubernetesVersionItemProps {
   readonly kubernetesVersion: string;
-  readonly clusterKubernetesVersion: {
-    readonly get: () => ClusterKubernetesVersion | undefined;
-    readonly choose: (kubernetesVersion: string) => void;
-  };
+  readonly clusterKubernetesVersion: ClusterKubernetesVersionState;
 }
 
 // Renders from its props alone, injecting nothing, as a menu row should: see the resource menu's row.
@@ -40,10 +37,32 @@ const KubernetesVersionItem = observer(({ kubernetesVersion, clusterKubernetesVe
   );
 });
 
+const Separator = () => <DropDownMenuSeparator />;
+
+// For a cluster that could not tell its version: asks it again, as after connecting it.
+const AskClusterAgainItem = observer(({ clusterKubernetesVersion }: { readonly clusterKubernetesVersion: ClusterKubernetesVersionState }) => {
+  const closeMenu = useCloseDropDownMenu();
+  const asking = clusterKubernetesVersion.isAskingCluster();
+
+  return (
+    <DropDownMenuItemRow
+      Icon={RefreshIcon}
+      $enabled={!asking}
+      $onClick={() => {
+        closeMenu();
+        clusterKubernetesVersion.askClusterAgain();
+      }}
+    >
+      {asking ? "Asking the cluster which version it runs…" : "Ask the cluster which version it runs"}
+    </DropDownMenuItemRow>
+  );
+});
+
 const minorOf = (kubernetesVersion: string) => Number(kubernetesVersion.split(".")[1]);
 
 // One row per bundled version, and one for the version the cluster runs when the bundle does not
-// have it, which is then read from the cluster itself. Newest first.
+// have it, which is then read from the cluster itself. Newest first. A cluster that could not tell
+// its version gets a row asking it again.
 export const kubernetesVersionMenuItemsBunch = getDropDownMenuItemsInjectableBunch({
   id: "kube-documentation-kubernetes-version-items",
   kind: kubernetesVersionMenuKind,
@@ -55,10 +74,10 @@ export const kubernetesVersionMenuItemsBunch = getDropDownMenuItemsInjectableBun
       const clusterKubernetesVersion = getClusterKubernetesVersion(clusterId);
 
       return computed(() => {
-        const cluster = clusterKubernetesVersion.get()?.cluster;
+        const current = clusterKubernetesVersion.get();
+        const cluster = current?.cluster;
         const versions = cluster && !cluster.bundled ? [cluster.kubernetesVersion, ...bundledKubernetesVersions] : bundledKubernetesVersions;
-
-        return [...versions]
+        const versionItems = [...versions]
           .sort((a, b) => minorOf(b) - minorOf(a))
           .map((kubernetesVersion, index) => ({
             id: `kube-documentation-kubernetes-${kubernetesVersion}`,
@@ -66,6 +85,19 @@ export const kubernetesVersionMenuItemsBunch = getDropDownMenuItemsInjectableBun
             Component: KubernetesVersionItem,
             componentProps: { kubernetesVersion, clusterKubernetesVersion },
           }));
+
+        return current && !cluster
+          ? [
+              ...versionItems,
+              { id: "kube-documentation-ask-cluster-separator", orderNumber: 1000, Component: Separator },
+              {
+                id: "kube-documentation-ask-cluster-again",
+                orderNumber: 1001,
+                Component: AskClusterAgainItem,
+                componentProps: { clusterKubernetesVersion },
+              },
+            ]
+          : versionItems;
       });
     };
   },

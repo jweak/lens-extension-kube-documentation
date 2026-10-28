@@ -18,7 +18,7 @@ Your job: present a short, curated menu of starter prompts the user could send n
 
 4. Produce 5–7 concrete prompt suggestions covering distinct surfaces actually documented in the instructions (e.g. status-bar items, top-bar items, commands, routes, preferences pages, notifications). Each suggestion is one sentence the user could literally paste back. Prefer prompts that align with the name-derived hint and the current source state.
 
-   **Phrase every suggestion in plain product terms** — what the extension *does* for the user, where it shows up, what it reacts to. Do not mention implementation details like injection tokens, injectables, MobX, observables, React hooks, DI containers, or any framework/library names. The user is describing a feature; the implementation is Codex's problem afterwards.
+   **Phrase every suggestion in plain product terms** — what the extension *does* for the user, where it shows up, what it reacts to. Do not mention implementation details like injection tokens, injectables, MobX, observables, React hooks, DI containers, or any framework/library names. The user is describing a feature; the implementation is Claude's problem afterwards.
 
    Good: "Add a status-bar item that shows the current cluster's node count."
    Bad: "Register a statusBarItemInjectionToken that observes a MobX computed of nodes."

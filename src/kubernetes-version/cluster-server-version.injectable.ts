@@ -1,6 +1,7 @@
+import { clusterIsConnectedReactiveInjectionToken } from "@k8slens/cluster-contracts";
 import { getInjectable2 } from "@k8slens/injectable";
 import { runKubectlInjectionToken } from "@k8slens/kubectl-contracts";
-import { observable, runInAction } from "mobx";
+import { observable, reaction, runInAction } from "mobx";
 
 export interface ServerVersion {
   /** The minor version whose API the cluster serves, e.g. `1.36`. */
@@ -43,26 +44,75 @@ export const parseServerVersion = (output: string): ServerVersion | undefined =>
     : undefined;
 };
 
+export interface ClusterServerVersion {
+  /** `undefined` until the cluster has answered once, `null` when it could not tell. */
+  readonly get: () => ServerVersion | null | undefined;
+  /** Whether the cluster is being asked right now. */
+  readonly isAsking: () => boolean;
+  /** Asks the cluster again, keeping what it last said until it answers. */
+  readonly refresh: () => void;
+}
+
 /**
  * The Kubernetes version a cluster runs, asked of the cluster with the kubectl Lens keeps for it:
- * `undefined` while asking, `null` when it could not tell.
+ * at once, and again whenever Lens connects to the cluster, so a cluster asked while it was still
+ * connecting, or upgraded and reconnected since, is not documented as it was first answered.
  */
 export const clusterServerVersionInjectable = getInjectable2({
   id: "kube-documentation-cluster-server-version",
-  consumptions: [runKubectlInjectionToken],
+  consumptions: [runKubectlInjectionToken, clusterIsConnectedReactiveInjectionToken],
 
   instantiate: (di) => {
     const runKubectlFor = di.inject(runKubectlInjectionToken);
+    const clusterIsConnected = di.inject(clusterIsConnectedReactiveInjectionToken);
 
-    return (clusterId: string) => {
+    return (clusterId: string): ClusterServerVersion => {
       const serverVersion = observable.box<ServerVersion | null | undefined>(undefined, { deep: false });
+      const asking = observable.box(false);
+      let latestRun = 0;
 
-      void runKubectlFor(clusterId)(["version", "--output", "json"]).then(
-        (output) => runInAction(() => serverVersion.set(parseServerVersion(output) ?? null)),
-        () => runInAction(() => serverVersion.set(null)),
-      );
+      const ask = () => {
+        const run = ++latestRun;
 
-      return { get: () => serverVersion.get() };
+        runInAction(() => asking.set(true));
+
+        void runKubectlFor(clusterId)(["version", "--output", "json"]).then(
+          (output) => {
+            // Only the newest run answers; an older one still finishing would undo it.
+            if (run === latestRun) {
+              runInAction(() => {
+                serverVersion.set(parseServerVersion(output) ?? null);
+                asking.set(false);
+              });
+            }
+          },
+          () => {
+            if (run === latestRun) {
+              runInAction(() => {
+                serverVersion.set(null);
+                asking.set(false);
+              });
+            }
+          },
+        );
+      };
+
+      ask();
+
+      // The cluster connecting, now or later, is what makes its answer worth asking for again: the
+      // kubectl matching its version is there from then on, and so is the cluster after an upgrade.
+      void clusterIsConnected(clusterId).then((isConnected) => {
+        reaction(
+          () => isConnected.get(),
+          (connected) => {
+            if (connected) {
+              ask();
+            }
+          },
+        );
+      });
+
+      return { get: () => serverVersion.get(), isAsking: () => asking.get(), refresh: ask };
     };
   },
 });

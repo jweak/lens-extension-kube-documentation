@@ -42,6 +42,11 @@ export interface DocumentationTarget {
   readonly kind: string;
 }
 
+/** What documentation is asked for, and on which cluster: a place Lens can take the user to. */
+export interface DocumentationPlace extends DocumentationTarget {
+  readonly clusterId: string;
+}
+
 export const getGroup = (apiVersion: string) => (apiVersion.includes("/") ? apiVersion.slice(0, apiVersion.indexOf("/")) : "");
 
 export const getVersion = (apiVersion: string) => apiVersion.slice(apiVersion.indexOf("/") + 1);

@@ -43,6 +43,17 @@ export interface ClusterKubernetesVersion {
   readonly chosen: boolean;
 }
 
+export interface ClusterKubernetesVersionState {
+  /** Undefined while the cluster is being asked, briefly, and while the remembered choice is read. */
+  readonly get: () => ClusterKubernetesVersion | undefined;
+  /** Looks at another Kubernetes version; the cluster's own again goes back to following the cluster. */
+  readonly choose: (kubernetesVersion: string) => void;
+  /** Whether the cluster is being asked which version it runs right now. */
+  readonly isAskingCluster: () => boolean;
+  /** Asks the cluster again which version it runs, for when it could not tell. */
+  readonly askClusterAgain: () => void;
+}
+
 /**
  * Which Kubernetes version a cluster's built-in kinds are documented as: the version the cluster
  * runs, when it can be asked, from the bundled reference or, for a version the bundle does not have,
@@ -59,7 +70,7 @@ export const clusterKubernetesVersionInjectable = getInjectable2({
     const getChoice = di.inject(kubernetesVersionChoiceBunch.persistable);
     const getServerVersion = di.inject(clusterServerVersionInjectable);
 
-    return (clusterId: string) => {
+    return (clusterId: string): ClusterKubernetesVersionState => {
       const serverVersion = getServerVersion(clusterId);
       const choice = observable.box<IObservableValue<string | null> | undefined>(undefined, { deep: false });
       const sessionChoice = observable.box<string | undefined>(undefined);
@@ -76,7 +87,6 @@ export const clusterKubernetesVersionInjectable = getInjectable2({
       };
 
       return {
-        /** Undefined while the cluster is being asked, briefly, and while the remembered choice is read. */
         get: (): ClusterKubernetesVersion | undefined => {
           const server = serverVersion.get();
 
@@ -122,6 +132,9 @@ export const clusterKubernetesVersionInjectable = getInjectable2({
             void getChoice(clusterId).then(action((loaded) => loaded.set(kubernetesVersion)));
           }
         }),
+
+        isAskingCluster: () => serverVersion.isAsking(),
+        askClusterAgain: () => serverVersion.refresh(),
       };
     };
   },

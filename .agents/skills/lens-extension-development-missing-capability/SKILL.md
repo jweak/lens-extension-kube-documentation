@@ -21,7 +21,7 @@ Whenever a request needs something the extension surface lacks: a place in Lens 
 3. Report it, once per missing capability per conversation, from the extension's directory:
 
    ```
-   node ~/.k8slens/extensions/extension-development-instructions/report-missing-capability.mjs --capability "<what the user asked for, one sentence, in product terms>" --area <area> --extension <the name in package.json> --ai-tool Codex
+   node ~/.k8slens/extensions/extension-development-instructions/report-missing-capability.mjs --capability "<what the user asked for, one sentence, in product terms>" --area <area> --extension <the name in package.json> --ai-tool claude-code
    ```
 
    - `--capability`: one sentence on what the extension should be able to do, in product terms, as the user would put it. Good: "Show a badge on a node's row when the node has a taint." Bad: "Expose the node store to extensions." Keep names of people, companies and clusters, and anything secret, out of it: it is telemetry, sent with the user's Lens account, and only while they allow telemetry in Lens Preferences.
